@@ -1,5 +1,3 @@
-const { NotImplementedError } = require('../extensions/index.js');
-
 /**
  * Implement class VigenereCipheringMachine that allows us to create
  * direct and reverse ciphering machines according to task description
@@ -21,13 +19,40 @@ const { NotImplementedError } = require('../extensions/index.js');
  */
 class VigenereCipheringMachine {
   isReverse;
+  table;
+  base;
 
   constructor(isReverse) {
     this.isReverse = isReverse === false;
+    this.base = 'A'.charCodeAt(0);
+    this.alpLen = 26;
+
+    // pre-generate table that for given [x][y] returns encrypted char
+    this.table = [];
+
+    for (let i = 0; i < this.alpLen; i++) {
+      this.table[i] = [];
+
+      for (let j = 0; j < this.alpLen; j++) {
+        const code = ((i + j) % this.alpLen) + this.base;
+
+        this.table[i][j] = String.fromCharCode(code);
+      }
+    }
   }
 
-  reverse(str) {
-    return str.split('').reverse().join('');
+  listToString(xs) {
+    return this.isReverse
+      ? xs.reverse().join('')
+      : xs.join('');
+  }
+
+  // ... Machines encrypt and decrypt only latin alphabet
+  // (all other symbols remain unchanged).
+  shouldEncrypt(char) {
+    const code = char.charCodeAt(0) - this.base;
+
+    return code >= 0 && code < this.alpLen;
   }
 
   encrypt(str, key) {
@@ -35,27 +60,27 @@ class VigenereCipheringMachine {
       throw new Error('Incorrect arguments!');
     }
 
-    const klen = key.length;
-    const base = 'a'.charCodeAt(0);
+    const keyU = key.toUpperCase();
+    const strU = str.toUpperCase();
 
-    let result = '';
+    const klen = key.length;
+    const result = [];
 
     for (let i = 0, k = 0, len = str.length; i < len; ++i) {
-      const char = str[i].toLowerCase();
+      const char = strU[i];
 
-      if (!/[a-z]/i.test(char)) {
-        result += char;
-        continue;
+      const x = char.charCodeAt(0) - this.base;
+      const y = keyU[k % klen].charCodeAt(0) - this.base;
+
+      if (this.shouldEncrypt(char)) {
+        result.push(this.table[x][y]);
+        k++;
+      } else {
+        result.push(char);
       }
-
-      const code = char.charCodeAt(0) - base;
-      const kcode = key[k].toLowerCase().charCodeAt(0) - base;
-
-      result += String.fromCharCode(base + (code + kcode) % 26 - 32);
-      k = (k + 1) % klen;
     }
 
-    return this.isReverse ? this.reverse(result) : result;
+    return this.listToString(result);
   }
 
   decrypt(str, key) {
@@ -63,39 +88,29 @@ class VigenereCipheringMachine {
       throw new Error('Incorrect arguments!');
     }
 
-    const klen = key.length;
-    const base = 'a'.charCodeAt(0);
+    const keyU = key.toUpperCase();
+    const strU = str.toUpperCase();
 
-    let result = '';
+    const klen = key.length;
+    const result = [];
 
     for (let i = 0, k = 0, len = str.length; i < len; ++i) {
-      const char = str[i];
+      const char = strU[i];
 
-      if (!/[a-z]/i.test(char)) {
-        result += char;
-        continue;
+      if (this.shouldEncrypt(char)) {
+        const y = keyU[k % klen].charCodeAt(0) - this.base;
+        const idx = this.table[y].indexOf(char);
+
+        result.push(this.table[0][idx]);
+        k++;
+      } else {
+        result.push(char);
       }
-
-      const code = char.charCodeAt(0) - base + 32;
-      const kcode = key[k].charCodeAt(0) - base;
-
-      const shift = code < kcode ? 26 : 0;
-
-      result += String.fromCharCode(base + (code - kcode) % 26 + shift - 32);
-      k = (k + 1) % klen;
     }
 
-    return this.isReverse ? this.reverse(result) : result;
+    return this.listToString(result);
   }
 }
-
-const directMachine = new VigenereCipheringMachine();
-const reverseMachine = new VigenereCipheringMachine(false);
-
-console.log(
-  // directMachine.encrypt('Example of sequence: 1, 2, 3, 4.', 'lilkey'),
-  directMachine.encrypt('Samelengthkey', 'Samelengthkey'),
-);
 
 module.exports = {
   VigenereCipheringMachine
